@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Forms-style quiz</title>
+    <style>
+      body { font: 15px/1.6 -apple-system, system-ui, sans-serif; max-width: 640px; margin: 40px auto; }
+      .item { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; }
+      [role="radio"] { display: block; padding: 6px 10px; border: 1px solid #eee; border-radius: 6px; margin: 4px 0; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h1>Custom-widget quiz</h1>
+    <div class="item" role="listitem">
+      <div role="heading" aria-level="3">What is 12 × 12?</div>
+      <div role="radiogroup" aria-labelledby="q1t">
+        <div role="radio" aria-label="122">122</div>
+        <div role="radio" aria-label="144">144</div>
+        <div role="radio" aria-label="124">124</div>
+        <div role="radio" aria-label="112">112</div>
+      </div>
+    </div>
+    <div class="item" role="listitem">
+      <div role="heading" aria-level="3">Which gas do plants absorb?</div>
+      <div role="radiogroup">
+        <div role="radio" aria-label="Oxygen">Oxygen</div>
+        <div role="radio" aria-label="Carbon dioxide">Carbon dioxide</div>
+        <div role="radio" aria-label="Nitrogen">Nitrogen</div>
+      </div>
+    </div>
+  </body>
+</html>
