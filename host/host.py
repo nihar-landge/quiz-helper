@@ -199,13 +199,20 @@ def _notify(title, subtitle, body):
         log("notify failed: %r" % e)
 
 
-def notify_answer(result):
+def notify_answer(result, batch=None):
     """Send a macOS notification with the answer (appears in Notification Centre)."""
     letter = (result.get("optionLetter") or "").strip()
     text = (result.get("answerText") or "").strip()
     reason = (result.get("oneLineReason") or "").strip()
 
     title = ("Answer: " + letter) if letter else "Answer"
+    # In a batch, number each answer so progress is trackable (1/10, 2/10, …).
+    if batch and batch.get("total"):
+        title = "Answer %s/%s: %s" % (
+            batch.get("index", "?"),
+            batch.get("total", "?"),
+            letter or "—",
+        )
     body = text[:120]
     subtitle = reason[:80] if reason else ""
     _notify(title, subtitle, body)
@@ -260,12 +267,23 @@ def handle(msg):
             if msg.get("speak"):
                 speak_answer(result)
             if notify_flag:
-                notify_answer(result)
+                notify_answer(result, msg.get("batch"))
             return result
         except subprocess.TimeoutExpired:
             return error_result(rid, "model timed out", notify_flag)
         except Exception as e:  # noqa: BLE001 — report everything to the UI
             return error_result(rid, str(e)[:300], notify_flag)
+
+    if mtype == "batchDone":
+        total = int(msg.get("total") or 0)
+        ok = int(msg.get("ok") or 0)
+        failed = int(msg.get("failed") or 0)
+        if msg.get("notify", True) and total > 0:
+            summary = "%d/%d answered" % (ok, total)
+            if failed:
+                summary += ", %d failed" % failed
+            _notify("Quiz Helper — batch done", "", summary)
+        return {"requestId": rid, "ok": True}
 
     return {"requestId": rid, "ok": False, "error": "unknown message type"}
 

@@ -100,10 +100,16 @@ ID survives reinstalls.
 
 - ⌥A needs **no selection** — a single click anywhere inside the question.
   The click is remembered for 5 minutes and survives scrolling.
+- **Batches**: ⌥Q answers every detected question one by one, and each
+  notification is numbered (`Answer 3/10: A — Queue`) with a final
+  **"batch done — 10/10 answered"** summary. Every answer (and any error) is
+  also kept in the toolbar popup's **Recent answers** list, so nothing is
+  lost if you miss the banners — click the extension icon anytime to read
+  them all.
 - Answers for multi-answer (checkbox) questions list every correct letter
   (`A,C`). Selections with no recognizable options get a short direct answer.
 - Toolbar popup: connection/model status, **Speak answers** and
-  **macOS notifications** toggles.
+  **macOS notifications** toggles, and the answers history.
 
 ## Testing
 
@@ -145,6 +151,7 @@ Generated at install time (not in git): `host/host.sh`.
 | Symptom | Fix |
 |---|---|
 | No notification at all | Popup shows status: "host not reachable" → run `./host/install.sh`, reload the extension |
+| Some answers missing in a batch | Notifications replace each other on screen — open the popup's **Recent answers** list; failed ones appear there with the error |
 | "model unavailable" | Enable Apple Intelligence; check `fm available`; accept terms with `fm license` |
 | Wrong question answered | Click closer to the question text, or select the exact text instead |
 | Multi-select missed | Make sure the question says "select all that apply" in its text |

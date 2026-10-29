@@ -88,19 +88,27 @@
 
   // ---------- answer request (notification only — no UI) ----------
 
-  async function requestAnswer(parsed) {
-    if (!parsed || !parsed.question) return;
-    try {
-      await chrome.runtime.sendMessage({
-        type: "answer",
-        question: parsed.question,
-        options: parsed.options || [],
-        multi: !!parsed.multi,
-      });
-      // Result delivered as macOS notification by the host — nothing to show here.
-    } catch (e) {
-      // Silently ignore — host will log the error.
+  async function requestAnswer(parsed, batch) {
+    if (!parsed || !parsed.question) return null;
+    const payload = {
+      type: "answer",
+      question: parsed.question,
+      options: parsed.options || [],
+      multi: !!parsed.multi,
+      batch: batch || null,
+    };
+    // One retry if the message channel breaks (e.g. service worker restart
+    // mid-batch) — model-level errors are NOT retried (the host already
+    // reported them as a notification).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await chrome.runtime.sendMessage(payload);
+        return res || null;
+      } catch (e) {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+      }
     }
+    return null;
   }
 
   // ---------- triggers ----------
@@ -108,12 +116,29 @@
   async function answerAllDetected() {
     const questions = detectQuestions();
     if (!questions.length) return;
-    // Fire all requests concurrently so notifications arrive as fast as possible.
-    await Promise.all(
-      questions.map((q) =>
-        requestAnswer({ question: q.question, options: q.options, multi: q.multi })
-      )
-    );
+    const total = questions.length;
+    let ok = 0;
+    // Sequential: the background queue is serial anyway, and this keeps each
+    // request retryable and the notifications ordered.
+    for (let i = 0; i < total; i++) {
+      const q = questions[i];
+      const res = await requestAnswer(
+        { question: q.question, options: q.options, multi: q.multi },
+        { index: i + 1, total }
+      );
+      if (res && res.ok) ok++;
+    }
+    // Completion summary so "still working" is never confused with "failed".
+    try {
+      await chrome.runtime.sendMessage({
+        type: "batchDone",
+        total,
+        ok,
+        failed: total - ok,
+      });
+    } catch (e) {
+      /* best effort */
+    }
   }
 
   async function stealthAnswer() {

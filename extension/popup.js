@@ -44,3 +44,37 @@ function check() {
 
 document.getElementById("retry").addEventListener("click", check);
 check();
+
+// ---------- recent answers ----------
+
+const answersEl = document.getElementById("answers");
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
+async function renderAnswers() {
+  const { answers = [] } = await chrome.storage.local.get("answers");
+  if (!answers.length) {
+    answersEl.innerHTML = '<div class="empty">nothing yet — answers you request are kept here</div>';
+    return;
+  }
+  answersEl.innerHTML = answers
+    .slice(0, 12)
+    .map((a) => {
+      const main = a.ok
+        ? `${a.letter ? "<b>" + esc(a.letter) + "</b> · " : ""}<span class="a">${esc(a.text)}</span>`
+        : `<b>error</b> · <span class="a">${esc(a.error)}</span>`;
+      return `<div class="ans${a.ok ? "" : " err"}" title="${esc(a.reason || a.error)}">${main}<div class="qn">${esc(
+        a.question
+      )}</div></div>`;
+    })
+    .join("");
+}
+
+document.getElementById("clear").addEventListener("click", async () => {
+  await chrome.storage.local.set({ answers: [] });
+  renderAnswers();
+});
+
+renderAnswers();

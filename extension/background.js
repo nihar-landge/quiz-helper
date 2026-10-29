@@ -80,12 +80,53 @@ function enqueue(payload, send) {
   processQueue();
 }
 
+// Keep the last answers so the popup can show them even after the
+// notifications have been dismissed.
+const HISTORY_KEY = "answers";
+
+async function saveHistory(req, res) {
+  try {
+    const entry = {
+      ts: Date.now(),
+      question: String(req.question || "").slice(0, 160),
+      ok: !!(res && res.ok),
+      letter: res?.optionLetter || "",
+      text: String(res?.answerText || "").slice(0, 120),
+      reason: String(res?.oneLineReason || "").slice(0, 160),
+      error: res && !res.ok ? String(res.error || "").slice(0, 160) : "",
+    };
+    const { [HISTORY_KEY]: answers = [] } = await chrome.storage.local.get(HISTORY_KEY);
+    answers.unshift(entry);
+    if (answers.length > 30) answers.length = 30;
+    await chrome.storage.local.set({ [HISTORY_KEY]: answers });
+  } catch (e) {
+    /* history is best-effort */
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "ping") {
     callHost({ type: "ping" }, 15000)
       .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e.message || e) }));
     return true; // async response
+  }
+  if (msg?.type === "batchDone") {
+    // Completion summary notification; respond immediately, host notifies async.
+    chrome.storage?.local.get({ notify: true }, ({ notify }) => {
+      callHost(
+        {
+          type: "batchDone",
+          total: msg.total | 0,
+          ok: msg.ok | 0,
+          failed: msg.failed | 0,
+          notify: !!notify,
+        },
+        15000
+      ).catch(() => {});
+    });
+    sendResponse({ ok: true });
+    return false;
   }
   if (msg?.type === "answer") {
     chrome.storage?.local.get({ speak: false, notify: true }, ({ speak, notify }) => {
@@ -95,10 +136,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           question: msg.question,
           options: msg.options,
           multi: !!msg.multi,
+          batch: msg.batch || null,
           speak: !!speak,
           notify: !!notify,
         },
-        sendResponse
+        (res) => {
+          saveHistory(msg, res);
+          sendResponse(res);
+        }
       );
     });
     return true;
